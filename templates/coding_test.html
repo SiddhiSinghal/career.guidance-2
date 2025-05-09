@@ -108,12 +108,83 @@
             border: 1px solid var(--medium-grey);
             overflow-x: auto;
         }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+
+        .right-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .change-question-btn {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            width: 100%;
+        }
+
+        .change-question-btn:hover {
+            background-color: #1a252f;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-dashboard {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-dashboard:hover {
+            background-color: #1a252f;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Back Button -->
-        <button onclick="window.history.back()" class="back-button">&#8592; Back</button>
+        <div class="header-container">
+            <!-- Back Button -->
+            <button onclick="window.history.back()" class="back-button">&#8592; Back</button>
+            
+            <!-- Right side buttons container -->
+            <div class="right-buttons">
+                <!-- Change Question Button -->
+                <form method="POST" action="{{ url_for('next_question') }}" style="margin: 0 0 10px 0;">
+                    <button type="submit" class="change-question-btn">🔄 Change Question</button>
+                </form>
+                <!-- Go to Dashboard Button -->
+                <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Go to Dashboard</a>
+            </div>
+        </div>
 
         <h2>C++ Coding Test</h2>
 
@@ -140,6 +211,40 @@
             <div class="card p-4 mb-4">
                 <h3 class="mb-3">Output:</h3>
                 <pre>{{ output }}</pre>
+            </div>
+        {% endif %}
+
+        {% if test_results %}
+            <div class="card p-4 mb-4">
+                <h3 class="mb-3">Test Results:</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Expected Output</th>
+                                <th>Your Output</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in test_results %}
+                            <tr>
+                                <td>{{ result.input }}</td>
+                                <td>{{ result.expected }}</td>
+                                <td>{{ result.actual }}</td>
+                                <td>
+                                    {% if result.passed %}
+                                    <span class="text-success">✓ Passed</span>
+                                    {% else %}
+                                    <span class="text-danger">✗ Failed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         {% endif %}
 

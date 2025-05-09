@@ -14,20 +14,28 @@
             <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title text-center">Your Assessment Marks</h5>
-                    {% if current_user.assessments or current_user.coding_test_score is not none %}
+                    {% if current_user.assessments %}
+                    <form action="{{ url_for('delete_all_assessments') }}" method="POST" class="text-end mb-3">
+                        <button type="submit" class="btn btn-outline-dark btn-sm" 
+                                onclick="return confirm('Are you sure you want to delete ALL your assessments? This cannot be undone!')"
+                                style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
+                            Delete All
+                        </button>
+                    </form>
                     <ul class="list-group list-group-flush mt-3">
                         {% for assessment in current_user.assessments %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ assessment.assessment_type }}
-                            <span class="badge bg-primary rounded-pill">{{ assessment.score }}</span>
+                            <div>
+                                {{ assessment.assessment_type }}
+                                <span class="badge bg-primary rounded-pill">{{ assessment.score }}</span>
+                            </div>
+                            <form action="{{ url_for('delete_assessment', assessment_id=assessment.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn-close" onclick="return confirm('Are you sure you want to delete this assessment?')" 
+                                        style="width: 20px; height: 20px; padding: 0; margin-left: 10px; opacity: 0.5; transition: opacity 0.2s;">
+                                </button>
+                            </form>
                         </li>
                         {% endfor %}
-                        {% if current_user.coding_test_score is not none %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Coding Test
-                            <span class="badge bg-success rounded-pill">{{ current_user.coding_test_score }}</span>
-                        </li>
-                        {% endif %}
                     </ul>
                     {% else %}
                     <p class="card-text mt-3 text-center">No assessments taken yet.</p>

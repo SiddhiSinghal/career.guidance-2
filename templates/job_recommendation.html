@@ -139,13 +139,23 @@
 </head>
 <body>
   <button onclick="window.history.back()" class="back-button">&#8592; Back</button>
-
+  <div class="container">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mb-4">Go to Dashboard</a>
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Enter marks of your academic subjects to get job recommendations</h5>
+      </div>
+    </div>
+  </div>
   <div class="container mt-4">
     <div class="row">
       <!-- Form Section -->
       <div class="col-md-6">
         <div class="form-card">
           <h4 class="mb-4">Job Recommendation System</h4>
+          <h5>Input marks out of 100</h5>
           <form method="POST">
             <div class="row">
               <div class="col-md-6">
@@ -214,7 +224,11 @@
           <h5 class="mb-4">Top 3 Job Recommendations:</h5>
           {% for job in job_predictions %}
           <div class="job-box">
-            <a href="{{ url_for('job_detail', job_name=job.lower()) }}">{{ job }}</a>
+            {% if job == 'UI/UX' %}
+              <a href="{{ url_for('job_detail', job_name='ui_and_ux') }}">{{ job }}</a>
+            {% else %}
+              <a href="{{ url_for('job_detail', job_name=job.lower().replace(' ', '_')) }}">{{ job }}</a>
+            {% endif %}
           </div>
           {% endfor %}
         </div>

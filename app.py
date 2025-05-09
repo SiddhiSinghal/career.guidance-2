@@ -43,10 +43,59 @@ questions = [
     "Sort an array using Bubble Sort."
 ]
 
+# Define test cases for each question
+test_cases = {
+    "Reverse a string.": [
+        {"input": "hello", "output": "olleh"},
+        {"input": "world", "output": "dlrow"},
+        {"input": "python", "output": "nohtyp"}
+    ],
+    "Check if a number is a prime number.": [
+        {"input": "7", "output": "Prime"},
+        {"input": "4", "output": "Not Prime"},
+        {"input": "13", "output": "Prime"}
+    ],
+    "Find the factorial of a number.": [
+        {"input": "5", "output": "120"},
+        {"input": "0", "output": "1"},
+        {"input": "3", "output": "6"}
+    ],
+    "Check if a number is a palindrome.": [
+        {"input": "121", "output": "Palindrome"},
+        {"input": "123", "output": "Not Palindrome"},
+        {"input": "999", "output": "Palindrome"}
+    ],
+    "Find the largest element in an array.": [
+        {"input": "1 9 3", "output": "9"},
+        {"input": "5 2 8 1", "output": "8"},
+        {"input": "10 20 30", "output": "30"}
+    ],
+    "Calculate the sum of digits of a number.": [
+        {"input": "567", "output": "18"},
+        {"input": "123", "output": "6"},
+        {"input": "999", "output": "27"}
+    ],
+    "Count the number of vowels in a string.": [
+        {"input": "hello", "output": "2"},
+        {"input": "python", "output": "1"},
+        {"input": "aeiou", "output": "5"}
+    ],
+    "Check if a number is an Armstrong number.": [
+        {"input": "153", "output": "Armstrong"},
+        {"input": "123", "output": "Not Armstrong"},
+        {"input": "370", "output": "Armstrong"}
+    ],
+    "Sort an array using Bubble Sort.": [
+        {"input": "5 4 3 2 1", "output": "1 2 3 4 5"},
+        {"input": "3 1 4 2", "output": "1 2 3 4"},
+        {"input": "9 8 7 6", "output": "6 7 8 9"}
+    ]
+}
+
 # Expected outputs for some questions (you can expand this based on your requirements)
 expected_outputs = {
     "Reverse a string.": "gnirts",
-    "Check if a number is a prime number.": "Prime",  # For example: if input is 7, output would be 'Prime'
+    "Check if a number is a prime number.": "Prime",  # For example: if input is 7
     "Find the factorial of a number.": "120",  # For input 5
     "Check if a number is a palindrome.": "Palindrome",  # For example: input 121
     "Find the largest element in an array.": "9",  # For array [1, 9, 3]
@@ -57,13 +106,13 @@ expected_outputs = {
 }
 
 @app.route('/coding_test', methods=['GET', 'POST'])
+@login_required
 def coding_test():
     output = None
     code = ""
     custom_input = ""
     marks = 0
     
-    # Set the question only if it's not already in the session
     if 'question' not in session:
         session['question'] = random.choice(questions)
     
@@ -72,36 +121,91 @@ def coding_test():
     if request.method == 'POST':
         code = request.form['code']
         custom_input = request.form.get('custom_input', '')
-        try:
-            with open("user_code.cpp", "w") as f:
-                f.write(code)
+        
+        # Check if code is empty
+        if not code.strip():
+            marks = 0  # No submission
+            output = "No code submitted"
+        else:
+            try:
+                # Create a unique filename for this submission
+                import uuid
+                unique_filename = f"user_code_{uuid.uuid4().hex}.cpp"
+                
+                with open(unique_filename, "w") as f:
+                    f.write(code)
 
-            compile_result = subprocess.run(["g++", "user_code.cpp", "-o", "user_code.out"], capture_output=True, text=True)
+                compile_result = subprocess.run(["g++", unique_filename, "-o", f"{unique_filename}.out"], 
+                                             capture_output=True, 
+                                             text=True)
 
-            if compile_result.returncode != 0:
-                output = compile_result.stderr
-            else:
-                run_result = subprocess.run(
-                    ["./user_code.out"],
-                    input=custom_input.strip(),
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                output = run_result.stdout
-
-                # Evaluate the output and assign marks based on correctness
-                if output.strip() == expected_outputs.get(question, "").strip():
-                    marks = 100
+                if compile_result.returncode != 0:
+                    marks = 20  # Compilation error
+                    output = compile_result.stderr
                 else:
-                    marks = 50  # For incorrect answers, you can assign partial marks
+                    # Run the code with the custom input
+                    run_result = subprocess.run(
+                        [f"./{unique_filename}.out"],
+                        input=custom_input.strip(),
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    output = run_result.stdout.strip()
+                    expected_output = expected_outputs.get(question, "").strip()
 
-        except subprocess.TimeoutExpired:
-            output = "⏱️ Time Limit Exceeded"
-        except Exception as e:
-            output = str(e)
+                    # Check if output matches expected output
+                    if output == expected_output:
+                        # Check code quality
+                        has_good_variables = any(word in code.lower() for word in ['result', 'output', 'input', 'temp', 'count', 'sum', 'number', 'string', 'array'])
+                        has_proper_indentation = all(line.startswith('    ') or line.startswith('\t') for line in code.split('\n') if line.strip())
+                        has_comments = '//' in code or '/*' in code
+                        
+                        # Updated marking scheme
+                        if has_good_variables and has_proper_indentation and has_comments:
+                            marks = 100  # Perfect code with good practices
+                        elif has_good_variables and has_proper_indentation:
+                            marks = 80   # Good code structure
+                        elif custom_input and custom_input.strip():  # Check if custom input is provided and not empty
+                            marks = 60   # Correct answer with user input
+                        else:
+                            marks = 40   # Correct answer without user input
+                    else:
+                        marks = 20  # Incorrect answer
 
-    return render_template("coding_test.html", output=output, code=code, custom_input=custom_input, question=question, marks=marks)
+                # Save the marks to the database
+                if marks > 0:
+                    new_assessment = Assessment(
+                        user_id=current_user.id,
+                        assessment_type='Coding Test',
+                        score=marks
+                    )
+                    db.session.add(new_assessment)
+                    db.session.commit()
+
+            except subprocess.TimeoutExpired:
+                marks = 20  # Timeout error
+                output = "⏱️ Time Limit Exceeded"
+            except Exception as e:
+                marks = 20  # Other errors
+                output = str(e)
+            finally:
+                # Clean up temporary files
+                import os
+                try:
+                    if os.path.exists(unique_filename):
+                        os.remove(unique_filename)
+                    if os.path.exists(f"{unique_filename}.out"):
+                        os.remove(f"{unique_filename}.out")
+                except:
+                    pass
+
+    return render_template("coding_test.html", 
+                         output=output, 
+                         code=code, 
+                         custom_input=custom_input, 
+                         question=question, 
+                         marks=marks)
 
 
 app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key
@@ -246,7 +350,10 @@ def aptitude_test():
         db.session.commit()
 
         flash(f"You scored {score // 10} out of 10!", "success")
-        return redirect(url_for('index'))
+        return render_template('aptitude_test.html', 
+                             questions=selected_questions, 
+                             score=score,
+                             show_results=True)  # Add this flag to show results
 
     # GET request: Select 10 random questions and store in session
     questions = load_questions()
@@ -279,12 +386,38 @@ def train_model():
 train_model()
 @app.route('/job/<job_name>')
 def job_detail(job_name):
-        user_email = current_user.email
-        roadmap = {}
+    user_email = current_user.email
+    roadmap = {}
 
-    # Load latest user marks from CSV
-        df = pd.read_csv('user_scores.csv')
+    # Map URL-friendly names back to display names
+    job_name_mapping = {
+        'ui_and_ux': 'UI/UX',
+        'data_scientist': 'Data Scientist',
+        'software_engineer': 'Software Engineer',
+        'web_developer': 'Web Developer',
+        'mobile_developer': 'Mobile Developer',
+        'devops_engineer': 'DevOps Engineer',
+        'cloud_architect': 'Cloud Architect',
+        'ai_engineer': 'AI Engineer',
+        'cybersecurity_analyst': 'Cybersecurity Analyst',
+        'product_manager': 'Product Manager'
+    }
+
+    # Get the display name from the mapping, or use the original if not found
+    display_name = job_name_mapping.get(job_name, job_name.replace('_', ' ').title())
+
+    # Load latest user marks from CSV with error handling
+    try:
+        # Define the expected columns
+        expected_columns = ['Name', 'Email', 'DSA', 'DBMS', 'OS', 'CN', 'Mathmetics', 
+                          'Aptitute', 'Comm', 'Problem_Solving', 'Creative', 'Hackathons']
+        
+        # Read CSV with specific columns
+        df = pd.read_csv('user_scores.csv', usecols=expected_columns)
+        
+        # Filter for current user
         user_rows = df[df['Email'] == user_email]
+        
         if not user_rows.empty:
             latest_scores = user_rows.iloc[-1].to_dict()
         else:
@@ -292,9 +425,22 @@ def job_detail(job_name):
                 'DSA': 0, 'DBMS': 0, 'OS': 0, 'CN': 0, 'Mathmetics': 0,
                 'Aptitute': 0, 'Comm': 0, 'Problem_Solving': 0, 'Creative': 0, 'Hackathons': 0
             }
-        job_info = get_job_info_llm(job_name)
-        roadmap = get_roadmap_llm(job_name, latest_scores)  # << USE get_roadmap_llm here, not show_roadmap
-        return render_template("job_detail.html", job_name=job_name, job_info=job_info, roadmap=roadmap)
+    except Exception as e:
+        print(f"Error reading user scores: {e}")
+        # If there's an error reading the CSV, use default scores
+        latest_scores = {
+            'DSA': 0, 'DBMS': 0, 'OS': 0, 'CN': 0, 'Mathmetics': 0,
+            'Aptitute': 0, 'Comm': 0, 'Problem_Solving': 0, 'Creative': 0, 'Hackathons': 0
+        }
+
+    # Clean the job name for the LLM
+    job_name_for_llm = display_name.replace('/', ' and ')
+    
+    # Get job information and roadmap
+    job_info = get_job_info_llm(job_name_for_llm)
+    roadmap = get_roadmap_llm(job_name_for_llm, latest_scores)
+    
+    return render_template("job_detail.html", job_name=display_name, job_info=job_info, roadmap=roadmap)
 
 
 def get_job_info_llm(job_name):
@@ -354,19 +500,38 @@ def show_roadmap(job_role):
     elif weeks > 52:
         weeks = 52
 
-    # Load latest user marks from CSV
-    df = pd.read_csv('user_scores.csv')
-    user_rows = df[df['Email'] == user_email]
-    if not user_rows.empty:
-        latest_scores = user_rows.iloc[-1].to_dict()
-    else:
+    # Load latest user marks from CSV with error handling
+    try:
+        # Define the expected columns
+        expected_columns = ['Name', 'Email', 'DSA', 'DBMS', 'OS', 'CN', 'Mathmetics', 
+                          'Aptitute', 'Comm', 'Problem_Solving', 'Creative', 'Hackathons']
+        
+        # Read CSV with specific columns
+        df = pd.read_csv('user_scores.csv', usecols=expected_columns)
+        
+        # Filter for current user
+        user_rows = df[df['Email'] == user_email]
+        
+        if not user_rows.empty:
+            latest_scores = user_rows.iloc[-1].to_dict()
+        else:
+            latest_scores = {
+                'DSA': 0, 'DBMS': 0, 'OS': 0, 'CN': 0, 'Mathmetics': 0,
+                'Aptitute': 0, 'Comm': 0, 'Problem_Solving': 0, 'Creative': 0, 'Hackathons': 0
+            }
+    except Exception as e:
+        print(f"Error reading user scores: {e}")
+        # If there's an error reading the CSV, use default scores
         latest_scores = {
             'DSA': 0, 'DBMS': 0, 'OS': 0, 'CN': 0, 'Mathmetics': 0,
             'Aptitute': 0, 'Comm': 0, 'Problem_Solving': 0, 'Creative': 0, 'Hackathons': 0
         }
 
+    # Clean the job role name for the LLM
+    job_role_for_llm = job_role.replace('_', ' ').replace('/', ' and ')
+    
     # Now generate customized roadmap with specified weeks
-    roadmap = get_roadmap_llm(job_role, latest_scores, weeks)
+    roadmap = get_roadmap_llm(job_role_for_llm, latest_scores, weeks)
 
     return render_template("roadmap.html", job_role=job_role, roadmap=roadmap, weeks=weeks)
 
@@ -438,18 +603,26 @@ def job_recommendation():
         ]
         name = current_user.username
         email = current_user.email
-        scores = user_data
 
+        # Define the column names
+        columns = ['Name', 'Email', 'DSA', 'DBMS', 'OS', 'CN', 'Mathmetics', 
+                  'Aptitute', 'Comm', 'Problem_Solving', 'Creative', 'Hackathons']
 
         file_path = 'user_scores.csv'
         file_exists = os.path.exists(file_path)
-        with open(file_path, 'a', newline='') as f:
-            writer = csv.writer(f)
-            # Write headers if file does not exist
-            if not file_exists:
-                writer.writerow(['Name', 'Email'] + user_data)
-            # Write user data
-            writer.writerow([name, email] + scores)
+        
+        try:
+            with open(file_path, 'a', newline='') as f:
+                writer = csv.writer(f)
+                # Write headers if file does not exist
+                if not file_exists:
+                    writer.writerow(columns)
+                # Write user data
+                writer.writerow([name, email] + user_data)
+        except Exception as e:
+            print(f"Error writing to CSV: {e}")
+            flash('Error saving scores. Please try again.', 'error')
+            return redirect(url_for('job_recommendation'))
 
         # Load model and encoder
         with open('job_model.pkl', 'rb') as f:
@@ -475,7 +648,7 @@ def job_recommendation():
     creative = Assessment.query.filter_by(user_id=current_user.id, assessment_type='Creativity Test').order_by(Assessment.date_taken.desc()).first()
 
     test_scores = {
-        "Aptitute": aptitude.score if aptitude else 0,
+        "Aptitude": aptitude.score if aptitude else 0,
         "Comm": communication.score if communication else 0,
         "Problem_Solving": problem_solving.score if problem_solving else 0,
         "Creative": creative.score if creative else 0
@@ -676,6 +849,31 @@ def self_assessment():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+@app.route('/next_question', methods=['POST'])
+@login_required
+def next_question():
+    # Remove the current question from session to get a new one
+    session.pop('question', None)
+    return redirect(url_for('coding_test'))
+
+@app.route('/delete_assessment/<int:assessment_id>', methods=['POST'])
+@login_required
+def delete_assessment(assessment_id):
+    assessment = Assessment.query.get_or_404(assessment_id)
+    if assessment.user_id == current_user.id:  # Ensure user can only delete their own assessments
+        db.session.delete(assessment)
+        db.session.commit()
+        flash('Assessment deleted successfully!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_all_assessments', methods=['POST'])
+@login_required
+def delete_all_assessments():
+    Assessment.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    flash('All assessments deleted successfully!', 'success')
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     with app.app_context():
